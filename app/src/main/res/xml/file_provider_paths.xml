@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Covers getExternalFilesDir(null) — no storage permission needed on API 29+ -->
+    <external-files-path
+        name="csv_files"
+        path="." />
+    <!-- Fallback for getFilesDir() on devices without external storage -->
+    <files-path
+        name="csv_files_internal"
+        path="." />
+</paths>
