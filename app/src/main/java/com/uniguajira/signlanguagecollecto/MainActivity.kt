@@ -53,8 +53,8 @@ class MainActivity : AppCompatActivity(), BluetoothService.Listener {
     private var maxSeqId = 0        // highest ID ever assigned; never decremented
 
     // ── Recognition mode ──────────────────────────────────────────────────────
-    private var recognizer: SignRecognizer? = null
-    private var isRecognitionMode = false
+    @Volatile private var recognizer: SignRecognizer? = null
+    @Volatile private var isRecognitionMode = false
     private val wordHistory = mutableListOf<String>()
     private var lastConfirmedSign = ""
 

@@ -117,14 +117,15 @@ class SignRecognizer(context: Context) : AutoCloseable {
             FloatBuffer.wrap(inputData),
             longArrayOf(1L, N_FEATURES.toLong(), WINDOW_SIZE.toLong())
         )
-        val outputs = session.run(mapOf("sensor_input" to tensor))
-
-        // Output shape: (1, N_CLASSES) — access as OnnxTensor
-        val outTensor = outputs[0].value as Array<*>
-        val logits    = outTensor[0] as FloatArray        // (N_CLASSES,)
-
-        tensor.close()
-        outputs.close()
+        val logits: FloatArray
+        try {
+            val outputs = session.run(mapOf("sensor_input" to tensor))
+            val outTensor = outputs[0].value as Array<*>
+            logits = outTensor[0] as FloatArray    // (N_CLASSES,)
+            outputs.close()
+        } finally {
+            tensor.close()
+        }
 
         // Softmax
         val maxLogit = logits.max()
