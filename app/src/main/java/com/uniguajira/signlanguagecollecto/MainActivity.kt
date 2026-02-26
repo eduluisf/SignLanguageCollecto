@@ -52,6 +52,12 @@ class MainActivity : AppCompatActivity(), BluetoothService.Listener {
     private var sequenceCount = 0   // # distinct sequences in file (display only)
     private var maxSeqId = 0        // highest ID ever assigned; never decremented
 
+    // ── Recognition mode ──────────────────────────────────────────────────────
+    private var recognizer: SignRecognizer? = null
+    private var isRecognitionMode = false
+    private val wordHistory = mutableListOf<String>()
+    private var lastConfirmedSign = ""
+
     // ── Sequence capture state ────────────────────────────────────────────────
 
     /** True only during the 1000 ms recording window. Written on main thread,
@@ -146,11 +152,22 @@ class MainActivity : AppCompatActivity(), BluetoothService.Listener {
 
         initCsvFile()
         setupQuickLabels()
+        setupRecognizer()
 
         binding.btnSelectDevice.setOnClickListener { checkPermissionsAndStartScan() }
         binding.btnSave.setOnClickListener { startCapture() }
         binding.btnDelete.setOnClickListener { showDeleteDialog() }
         binding.btnExport.setOnClickListener { exportCsv() }
+        binding.btnAddToHistory.setOnClickListener { addCurrentToHistory() }
+        binding.btnClearHistory.setOnClickListener { clearHistory() }
+
+        binding.bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.navCapture    -> { switchMode(recognition = false); true }
+                R.id.navRecognize  -> { switchMode(recognition = true);  true }
+                else -> false
+            }
+        }
 
         updateConnectionStatus(connected = false, deviceName = null)
     }
@@ -163,6 +180,8 @@ class MainActivity : AppCompatActivity(), BluetoothService.Listener {
         scanDialog?.dismiss()
         bluetoothService?.disconnect()
         bluetoothService = null
+        recognizer?.close()
+        recognizer = null
     }
 
     // ── CSV initialisation ───────────────────────────────────────────────────
@@ -346,15 +365,17 @@ class MainActivity : AppCompatActivity(), BluetoothService.Listener {
 
     override fun onSensorData(data: BluetoothService.SensorData) {
         currentData = data
-        // Buffer every frame that arrives during the 1000 ms recording window.
-        // This callback runs on the BLE binder thread; synchronize to avoid
-        // concurrent modification with finishCapture() on the main thread.
         if (isCapturing) {
             val ts = System.currentTimeMillis() - captureStartTime
             synchronized(captureBuffer) { captureBuffer.add(Pair(data, ts)) }
         }
+        // Run inference on BLE thread (fast, <5 ms) — update UI on main thread
+        val result = if (isRecognitionMode) recognizer?.addFrame(data) else null
         if (isDestroyed || isFinishing) return
-        runOnUiThread { updateSensorDisplay(data) }
+        runOnUiThread {
+            updateSensorDisplay(data)
+            if (result != null) updateRecognitionDisplay(result)
+        }
     }
 
     override fun onDisconnected() {
@@ -499,6 +520,65 @@ class MainActivity : AppCompatActivity(), BluetoothService.Listener {
             maxSeqId-- // rollback — nothing was written
             Toast.makeText(this, "Error al guardar: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    // ── Recognition mode ──────────────────────────────────────────────────────
+
+    private fun setupRecognizer() {
+        try {
+            recognizer = SignRecognizer(this)
+        } catch (e: Exception) {
+            Toast.makeText(this, "No se pudo cargar el modelo: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun switchMode(recognition: Boolean) {
+        isRecognitionMode = recognition
+        if (recognition) {
+            binding.scrollCapture.visibility     = View.GONE
+            binding.scrollRecognition.visibility = View.VISIBLE
+            recognizer?.reset()
+            binding.tvPredictedSign.text = "—"
+            binding.tvConfidence.text    = ""
+            binding.progressWindow.progress = 0
+            binding.tvWindowFill.text = "Acumulando frames: 0 / ${SignRecognizer.WINDOW_SIZE}"
+        } else {
+            binding.scrollCapture.visibility     = View.VISIBLE
+            binding.scrollRecognition.visibility = View.GONE
+        }
+    }
+
+    private fun updateRecognitionDisplay(result: SignRecognizer.Result) {
+        binding.progressWindow.progress  = result.windowFill
+        binding.tvWindowFill.text = "Frames: ${result.windowFill} / ${SignRecognizer.WINDOW_SIZE}"
+
+        if (result.windowFill < SignRecognizer.WINDOW_SIZE) return
+
+        if (result.confidence >= SignRecognizer.CONFIDENCE_THRESHOLD) {
+            binding.tvPredictedSign.text = result.label
+            binding.tvConfidence.text    = "${"%.1f".format(result.confidence * 100)}%"
+            lastConfirmedSign = result.label
+        } else {
+            binding.tvPredictedSign.text = "?"
+            binding.tvConfidence.text    = "${"%.1f".format(result.confidence * 100)}%"
+        }
+    }
+
+    private fun addCurrentToHistory() {
+        if (lastConfirmedSign.isEmpty()) {
+            Toast.makeText(this, "No hay seña confirmada aún.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        wordHistory.add(lastConfirmedSign)
+        binding.tvWordHistory.text = wordHistory.joinToString(" · ")
+    }
+
+    private fun clearHistory() {
+        wordHistory.clear()
+        lastConfirmedSign = ""
+        binding.tvWordHistory.text = "—"
+        binding.tvPredictedSign.text = "—"
+        binding.tvConfidence.text = ""
     }
 
     // ── Delete sequence ───────────────────────────────────────────────────────
