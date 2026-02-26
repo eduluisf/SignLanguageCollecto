@@ -528,7 +528,8 @@ class MainActivity : AppCompatActivity(), BluetoothService.Listener {
         try {
             recognizer = SignRecognizer(this)
         } catch (e: Exception) {
-            Toast.makeText(this, "No se pudo cargar el modelo: ${e.message}", Toast.LENGTH_LONG).show()
+            Log.e(TAG, "SignRecognizer load failed", e)
+            Toast.makeText(this, "Modelo: ${e.javaClass.simpleName}: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -541,7 +542,15 @@ class MainActivity : AppCompatActivity(), BluetoothService.Listener {
             binding.tvPredictedSign.text = "—"
             binding.tvConfidence.text    = ""
             binding.progressWindow.progress = 0
-            binding.tvWindowFill.text = "Acumulando frames: 0 / ${SignRecognizer.WINDOW_SIZE}"
+
+            if (recognizer == null) {
+                binding.tvWindowFill.text = "⚠ Modelo no cargado"
+                Toast.makeText(this, "Error: modelo ONNX no disponible.", Toast.LENGTH_LONG).show()
+            } else if (currentData == null) {
+                binding.tvWindowFill.text = "Conecta el guante primero"
+            } else {
+                binding.tvWindowFill.text = "Acumulando frames: 0 / ${SignRecognizer.WINDOW_SIZE}"
+            }
         } else {
             binding.scrollCapture.visibility     = View.VISIBLE
             binding.scrollRecognition.visibility = View.GONE

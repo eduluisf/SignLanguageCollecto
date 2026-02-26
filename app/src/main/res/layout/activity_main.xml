@@ -306,38 +306,25 @@
             android:orientation="vertical"
             android:padding="12dp">
 
-            <!-- Window fill progress -->
-            <com.google.android.material.card.MaterialCardView
+            <!-- Accumulation progress (always visible in recognition mode) -->
+            <TextView
+                android:id="@+id/tvWindowFill"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="4dp"
+                android:alpha="0.7"
+                android:gravity="center"
+                android:text="Acumulando: 0 / 25"
+                android:textSize="12sp" />
+
+            <ProgressBar
+                android:id="@+id/progressWindow"
+                style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="8dp"
                 android:layout_marginBottom="12dp"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="2dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="12dp">
-
-                    <TextView
-                        android:id="@+id/tvWindowFill"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="6dp"
-                        android:alpha="0.7"
-                        android:text="Acumulando frames: 0 / 25"
-                        android:textSize="12sp" />
-
-                    <ProgressBar
-                        android:id="@+id/progressWindow"
-                        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
-                        android:layout_width="match_parent"
-                        android:layout_height="8dp"
-                        android:max="25"
-                        android:progress="0" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                android:max="25"
+                android:progress="0" />
 
             <!-- Main prediction display -->
             <com.google.android.material.card.MaterialCardView
